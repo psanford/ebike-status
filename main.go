@@ -42,6 +42,10 @@ type StationInfo struct {
 	CSSClass color
 }
 
+func (s *StationInfo) Bars() []struct{} {
+	return make([]struct{}, s.Count)
+}
+
 type Region struct {
 	Name     string
 	Stations []StationInfo
@@ -173,11 +177,6 @@ func populateCounts(stations map[string]StationStatus) []Region {
 				inf.CSSClass = red
 			}
 			inf.Count = status.NumEbikesAvailable
-			if inf.Count > 2 {
-				inf.CSSClass = green
-			} else if inf.Count > 0 {
-				inf.CSSClass = yellow
-			}
 			out.Stations = append(out.Stations, inf)
 		}
 		outRegions = append(outRegions, out)
@@ -229,6 +228,14 @@ const tmplText = `
       .green { background-color: green; }
       .yellow { background-color: yellow; }
       .red { background-color: red; }
+      .bar {
+        display: inline-block;
+        width: .25em;
+        height: 1em;
+        background-color: green;
+        margin-right: .25em;
+        float: right;
+      }
     </style>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.1/css/bootstrap.min.css" integrity="sha384-WskhaSGFgHYWDcbwN70/dfYBj47jz9qbsMId/iRN3ewGhXQFZCSftd1LZCfmhktB" crossorigin="anonymous">
 	</head>
@@ -239,7 +246,7 @@ const tmplText = `
 	    <h2>{{.Name}}:</h2>
 	    <table class="table">
 	    {{range .Stations}}
-	      <tr class="{{.CSSClass}}"><td>{{.ID}}</td><td>{{.Name}}</td><td>{{.Count}}</td></tr>
+	      <tr class="{{.CSSClass}}"><td>{{.ID}}</td><td>{{.Name}}</td><td>{{range .Bars}}<div class=bar></div>{{end}}</td></tr>
 	    {{end}}
 	    </table>
 	    </div>
