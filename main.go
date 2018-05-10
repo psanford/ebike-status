@@ -236,6 +236,10 @@ const tmplText = `
         margin-right: .25em;
         float: right;
       }
+      .row-pad {
+        padding-top: 12px;
+        padding-bottom: 12px;
+      }
     </style>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.1/css/bootstrap.min.css" integrity="sha384-WskhaSGFgHYWDcbwN70/dfYBj47jz9qbsMId/iRN3ewGhXQFZCSftd1LZCfmhktB" crossorigin="anonymous">
 	</head>
@@ -244,11 +248,11 @@ const tmplText = `
     {{range .Regions}}
       <div class="container">
 	    <h2>{{.Name}}:</h2>
-	    <table class="table">
+	    <div class="table">
 	    {{range .Stations}}
-	      <tr class="{{.CSSClass}}"><td>{{.ID}}</td><td>{{.Name}}</td><td>{{range .Bars}}<div class=bar></div>{{end}}</td></tr>
+	      <div class="{{.CSSClass}} row row-pad border-top"><div class="col">{{.ID}}</div><div class="col">{{.Name}}</div><div class="col">{{range .Bars}}<div class=bar></div>{{end}}</div></div>
 	    {{end}}
-	    </table>
+	    </div>
 	    </div>
 	  {{end}}
     </main>
