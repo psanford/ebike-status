@@ -1,0 +1,78 @@
+{
+  "last_updated": 1525963347,
+  "ttl": 10,
+  "data": {
+    "en": {
+      "feeds": [
+        {
+          "name": "system_information",
+          "url": "https://gbfs.fordgobike.com/gbfs/en/system_information.json"
+        },
+        {
+          "name": "station_status",
+          "url": "https://gbfs.fordgobike.com/gbfs/en/station_status.json"
+        },
+        {
+          "name": "system_regions",
+          "url": "https://gbfs.fordgobike.com/gbfs/en/system_regions.json"
+        },
+        {
+          "name": "station_information",
+          "url": "https://gbfs.fordgobike.com/gbfs/en/station_information.json"
+        },
+        {
+          "name": "system_alerts",
+          "url": "https://gbfs.fordgobike.com/gbfs/en/system_alerts.json"
+        }
+      ]
+    },
+    "es": {
+      "feeds": [
+        {
+          "name": "system_information",
+          "url": "https://gbfs.fordgobike.com/gbfs/es/system_information.json"
+        },
+        {
+          "name": "station_status",
+          "url": "https://gbfs.fordgobike.com/gbfs/es/station_status.json"
+        },
+        {
+          "name": "system_regions",
+          "url": "https://gbfs.fordgobike.com/gbfs/es/system_regions.json"
+        },
+        {
+          "name": "station_information",
+          "url": "https://gbfs.fordgobike.com/gbfs/es/station_information.json"
+        },
+        {
+          "name": "system_alerts",
+          "url": "https://gbfs.fordgobike.com/gbfs/es/system_alerts.json"
+        }
+      ]
+    },
+    "fr": {
+      "feeds": [
+        {
+          "name": "system_information",
+          "url": "https://gbfs.fordgobike.com/gbfs/fr/system_information.json"
+        },
+        {
+          "name": "station_status",
+          "url": "https://gbfs.fordgobike.com/gbfs/fr/station_status.json"
+        },
+        {
+          "name": "system_regions",
+          "url": "https://gbfs.fordgobike.com/gbfs/fr/system_regions.json"
+        },
+        {
+          "name": "station_information",
+          "url": "https://gbfs.fordgobike.com/gbfs/fr/station_information.json"
+        },
+        {
+          "name": "system_alerts",
+          "url": "https://gbfs.fordgobike.com/gbfs/fr/system_alerts.json"
+        }
+      ]
+    }
+  }
+}
