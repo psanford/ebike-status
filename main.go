@@ -149,10 +149,8 @@ func index(w io.Writer) error {
 		stations[sta.ID] = sta
 	}
 
-	populateCounts(stations)
-
 	d := TmplData{
-		Regions: Regions,
+		Regions: populateCounts(stations),
 	}
 
 	if err := tmpl.Execute(w, d); err != nil {
@@ -163,21 +161,28 @@ func index(w io.Writer) error {
 	return nil
 }
 
-func populateCounts(stations map[string]StationStatus) {
+func populateCounts(stations map[string]StationStatus) []Region {
+	outRegions := make([]Region, 0, len(Regions))
 	for _, r := range Regions {
-		for i, inf := range r.Stations {
+		out := r
+		out.Stations = make([]StationInfo, 0, len(r.Stations))
+		for _, inf := range r.Stations {
 			status, ok := stations[inf.ID]
+
 			if !ok {
-				r.Stations[i].CSSClass = red
+				inf.CSSClass = red
 			}
-			r.Stations[i].Count = status.NumEbikesAvailable
-			if r.Stations[i].Count > 2 {
-				r.Stations[i].CSSClass = green
-			} else if r.Stations[i].Count > 0 {
-				r.Stations[i].CSSClass = yellow
+			inf.Count = status.NumEbikesAvailable
+			if inf.Count > 2 {
+				inf.CSSClass = green
+			} else if inf.Count > 0 {
+				inf.CSSClass = yellow
 			}
+			out.Stations = append(out.Stations, inf)
 		}
+		outRegions = append(outRegions, out)
 	}
+	return outRegions
 }
 
 type color string
