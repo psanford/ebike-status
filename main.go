@@ -9,6 +9,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -41,45 +42,66 @@ type StationInfo struct {
 	CSSClass color
 }
 
-func embarcaderoStations() []StationInfo {
-	return []StationInfo{
-		{
-			ID:   "22",
-			Name: "Howard St at Beale St",
-		},
-		{
-			ID:   "17",
-			Name: "Beale St at Market St",
-		},
-		{
-			ID:   "20",
-			Name: "Market St at Bush St",
-		},
-	}
+type Region struct {
+	Name     string
+	Stations []StationInfo
 }
 
-func missionStations() []StationInfo {
-	return []StationInfo{
-		{
-			ID:   "139",
-			Name: "25th St at Harrison St",
+var Regions = []Region{
+	{
+		Name: "Embarcadero",
+		Stations: []StationInfo{
+			{
+				ID:   "22",
+				Name: "Howard St at Beale St",
+			},
+			{
+				ID:   "17",
+				Name: "Beale St at Market St",
+			},
+			{
+				ID:   "20",
+				Name: "Market St at Bush St",
+			},
 		},
-		{
-			ID:   "129",
-			Name: "Harrison St at 20th St",
+	},
+	{
+		Name: "Mission",
+		Stations: []StationInfo{
+			{
+				ID:   "139",
+				Name: "25th St at Harrison St",
+			},
+			{
+				ID:   "129",
+				Name: "Harrison St at 20th St",
+			},
+			{
+				ID:   "125",
+				Name: "20th St at Bryant St",
+			},
+			{
+				ID:   "124",
+				Name: "19th St at Florida St",
+			},
 		},
-		{
-			ID:   "125",
-			Name: "20th St at Bryant St",
+	},
+	{
+		Name: "Potrero",
+		Stations: []StationInfo{
+			{
+				ID:   "130",
+				Name: "22nd St Caltrain Station",
+			},
+			{
+				ID:   "126",
+				Name: "Esprit Park",
+			},
 		},
-		{
-			ID:   "124",
-			Name: "19th St at Florida St",
-		},
-	}
+	},
 }
 
-func AWSHandler(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+func AWSHandler(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	var (
 		resp events.APIGatewayProxyResponse
 		b    bytes.Buffer
@@ -93,6 +115,9 @@ func AWSHandler(req events.APIGatewayProxyRequest) (events.APIGatewayProxyRespon
 
 	resp.StatusCode = http.StatusOK
 	resp.Body = b.String()
+	resp.Headers = map[string]string{
+		"Content-Type": "text/html",
+	}
 	return resp, nil
 }
 
@@ -124,9 +149,10 @@ func index(w io.Writer) error {
 		stations[sta.ID] = sta
 	}
 
+	populateCounts(stations)
+
 	d := TmplData{
-		Mission:     populateCount(missionStations(), stations),
-		Embarcadero: populateCount(embarcaderoStations(), stations),
+		Regions: Regions,
 	}
 
 	if err := tmpl.Execute(w, d); err != nil {
@@ -137,21 +163,21 @@ func index(w io.Writer) error {
 	return nil
 }
 
-func populateCount(info []StationInfo, stations map[string]StationStatus) []StationInfo {
-	for i, inf := range info {
-		status, ok := stations[inf.ID]
-		if !ok {
-			info[i].CSSClass = red
-		}
-		info[i].Count = status.NumEbikesAvailable
-		if info[i].Count > 2 {
-			info[i].CSSClass = green
-		} else if info[i].Count > 0 {
-			info[i].CSSClass = yellow
+func populateCounts(stations map[string]StationStatus) {
+	for _, r := range Regions {
+		for i, inf := range r.Stations {
+			status, ok := stations[inf.ID]
+			if !ok {
+				r.Stations[i].CSSClass = red
+			}
+			r.Stations[i].Count = status.NumEbikesAvailable
+			if r.Stations[i].Count > 2 {
+				r.Stations[i].CSSClass = green
+			} else if r.Stations[i].Count > 0 {
+				r.Stations[i].CSSClass = yellow
+			}
 		}
 	}
-
-	return info
 }
 
 type color string
@@ -192,6 +218,7 @@ const tmplText = `
 <html>
 	<head>
 		<meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
 		<title>Ebike status</title>
     <style>
       .green { background-color: green; }
@@ -202,24 +229,16 @@ const tmplText = `
 	</head>
 	<body>
     <main class="py-md-3">
-    <div class="container">
-    <h2>Embarcadero:</h2>
-    <table class="table">
-    {{range .Embarcadero}}
-      <tr class="{{.CSSClass}}"><td>{{.ID}}</td><td>{{.Name}}</td><td>{{.Count}}</td></tr>
-    {{end}}
-    </table>
-    </div>
-
-
-    <div class="container">
-    <h2>Mission:</h2>
-    <table class="table">
-    {{range .Mission}}
-      <tr class="{{.CSSClass}}"><td>{{.ID}}</td><td>{{.Name}}</td><td>{{.Count}}</td></tr>
-    {{end}}
-    </table>
-    </div>
+    {{range .Regions}}
+      <div class="container">
+	    <h2>{{.Name}}:</h2>
+	    <table class="table">
+	    {{range .Stations}}
+	      <tr class="{{.CSSClass}}"><td>{{.ID}}</td><td>{{.Name}}</td><td>{{.Count}}</td></tr>
+	    {{end}}
+	    </table>
+	    </div>
+	  {{end}}
     </main>
 	</body>
 </html>`
@@ -227,6 +246,5 @@ const tmplText = `
 var tmpl = template.Must(template.New("html").Parse(tmplText))
 
 type TmplData struct {
-	Embarcadero []StationInfo
-	Mission     []StationInfo
+	Regions []Region
 }
