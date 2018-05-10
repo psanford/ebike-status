@@ -8,19 +8,30 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
+	"errors"
 	"flag"
 	"html/template"
+	"io"
 	"log"
 	"net/http"
+
+	"github.com/aws/aws-lambda-go/events"
+	"github.com/aws/aws-lambda-go/lambda"
 )
 
 var addr = flag.String("listen_addr", "127.0.0.1:1234", "Host/Port to listen on")
+var local = flag.Bool("local", false, "Run local server")
 
 func main() {
 	flag.Parse()
-	http.HandleFunc("/", rootHandler)
-	panic(http.ListenAndServe(*addr, nil))
+	if *local {
+		http.HandleFunc("/", rootHandler)
+		panic(http.ListenAndServe(*addr, nil))
+	} else {
+		lambda.Start(AWSHandler)
+	}
 }
 
 type StationInfo struct {
@@ -68,12 +79,36 @@ func missionStations() []StationInfo {
 	}
 }
 
+func AWSHandler(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+	var (
+		resp events.APIGatewayProxyResponse
+		b    bytes.Buffer
+	)
+
+	err := index(&b)
+	if err != nil {
+		resp.StatusCode = http.StatusInternalServerError
+		return resp, nil
+	}
+
+	resp.StatusCode = http.StatusOK
+	resp.Body = b.String()
+	return resp, nil
+}
+
 func rootHandler(w http.ResponseWriter, r *http.Request) {
+	err := index(w)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+func index(w io.Writer) error {
 	rawResp, err := http.Get("https://gbfs.fordgobike.com/gbfs/en/station_status.json")
 	if err != nil {
 		log.Printf("Get station status error=%s", err)
-		http.Error(w, "Get Status Failed", http.StatusInternalServerError)
-		return
+		return errors.New("Get Status Failed")
 	}
 
 	dec := json.NewDecoder(rawResp.Body)
@@ -81,8 +116,7 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 
 	if err := dec.Decode(&resp); err != nil {
 		log.Printf("Decode station status error=%s", err)
-		http.Error(w, "Get Status Failed", http.StatusInternalServerError)
-		return
+		return errors.New("Get Status Failed")
 	}
 
 	stations := make(map[string]StationStatus)
@@ -95,7 +129,12 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 		Embarcadero: populateCount(embarcaderoStations(), stations),
 	}
 
-	tmpl.Execute(w, d)
+	if err := tmpl.Execute(w, d); err != nil {
+		log.Printf("Execute template error=%s", err)
+		return errors.New("Template Error")
+	}
+
+	return nil
 }
 
 func populateCount(info []StationInfo, stations map[string]StationStatus) []StationInfo {
