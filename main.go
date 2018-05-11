@@ -4,12 +4,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"flag"
+	"fmt"
 	"html/template"
-	"io"
 	"log"
 	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
@@ -21,7 +22,7 @@ var local = flag.Bool("local", false, "Run local server")
 func main() {
 	flag.Parse()
 	if *local {
-		http.HandleFunc("/", rootHandler)
+		http.HandleFunc("/", index)
 		panic(http.ListenAndServe(*addr, nil))
 	} else {
 		lambda.Start(AWSHandler)
@@ -99,38 +100,89 @@ var Regions = []Region{
 }
 
 func AWSHandler(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-	var (
-		resp events.APIGatewayProxyResponse
-		b    bytes.Buffer
-	)
+	w := newRespsonseWriter()
+	r := newRequest(req)
 
-	err := index(&b)
-	if err != nil {
-		resp.StatusCode = http.StatusInternalServerError
-		return resp, nil
-	}
+	index(w, r)
 
-	resp.StatusCode = http.StatusOK
-	resp.Body = b.String()
-	resp.Headers = map[string]string{
-		"Content-Type": "text/html",
-	}
-	return resp, nil
+	return w.Response(), nil
 }
 
-func rootHandler(w http.ResponseWriter, r *http.Request) {
-	err := index(w)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+func newRespsonseWriter() *ResponseWriter {
+	header := make(http.Header)
+	header.Set("Content-Type", "text/html")
+
+	return &ResponseWriter{
+		header:     header,
+		statusCode: http.StatusOK,
 	}
 }
 
-func index(w io.Writer) error {
+func newRequest(req events.APIGatewayProxyRequest) *http.Request {
+	var params url.Values
+	for k, v := range req.QueryStringParameters {
+		params.Set(k, v)
+	}
+
+	u := url.URL{
+		Host:     req.Headers["Host"],
+		Scheme:   req.Headers["X-Forwarded-Proto"],
+		Path:     req.Path,
+		RawQuery: params.Encode(),
+	}
+
+	httpReq, err := http.NewRequest(req.HTTPMethod, u.String(), bytes.NewReader([]byte(req.Body)))
+	if err != nil {
+		panic(err)
+	}
+
+	for k, v := range req.Headers {
+		httpReq.Header.Set(k, v)
+	}
+
+	httpReq.RemoteAddr = req.RequestContext.Identity.SourceIP
+	return httpReq
+}
+
+type ResponseWriter struct {
+	header     http.Header
+	b          bytes.Buffer
+	statusCode int
+}
+
+func (w *ResponseWriter) Header() http.Header {
+	return w.header
+}
+
+func (w *ResponseWriter) Write(p []byte) (int, error) {
+	return w.b.Write(p)
+}
+
+func (w *ResponseWriter) WriteHeader(statusCode int) {
+	w.statusCode = statusCode
+}
+
+func (w *ResponseWriter) Response() events.APIGatewayProxyResponse {
+	headers := make(map[string]string)
+	for k, vals := range w.header {
+		if len(vals) > 0 {
+			headers[k] = vals[0]
+		}
+	}
+
+	return events.APIGatewayProxyResponse{
+		StatusCode: w.statusCode,
+		Headers:    headers,
+		Body:       w.b.String(),
+	}
+}
+
+func index(w http.ResponseWriter, r *http.Request) {
 	rawResp, err := http.Get("https://gbfs.fordgobike.com/gbfs/en/station_status.json")
 	if err != nil {
 		log.Printf("Get station status error=%s", err)
-		return errors.New("Get Status Failed")
+		http.Error(w, "Get Status Failed", http.StatusInternalServerError)
+		return
 	}
 
 	dec := json.NewDecoder(rawResp.Body)
@@ -138,7 +190,8 @@ func index(w io.Writer) error {
 
 	if err := dec.Decode(&resp); err != nil {
 		log.Printf("Decode station status error=%s", err)
-		return errors.New("Get Status Failed")
+		http.Error(w, "Get Status Failed", http.StatusInternalServerError)
+		return
 	}
 
 	stations := make(map[string]StationStatus)
@@ -146,16 +199,30 @@ func index(w io.Writer) error {
 		stations[sta.ID] = sta
 	}
 
+	regions := populateCounts(stations)
+
+	ua := strings.ToLower(r.UserAgent())
+
+	if r.Header.Get("Accept") == "text/plain" || strings.HasPrefix(ua, "curl/") {
+		w.Header().Set("Content-Type", "text/plain")
+		format := "%12.12s %25.25s %d\n"
+		for _, r := range regions {
+			for _, s := range r.Stations {
+				fmt.Fprintf(w, format, r.Name, s.Name, s.Count)
+			}
+		}
+		return
+	}
+
 	d := TmplData{
-		Regions: populateCounts(stations),
+		Regions: regions,
 	}
 
 	if err := tmpl.Execute(w, d); err != nil {
 		log.Printf("Execute template error=%s", err)
-		return errors.New("Template Error")
+		http.Error(w, "Template Error", http.StatusInternalServerError)
+		return
 	}
-
-	return nil
 }
 
 func populateCounts(stations map[string]StationStatus) []Region {
