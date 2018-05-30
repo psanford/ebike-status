@@ -63,7 +63,7 @@ var Regions = []Region{
 			},
 			{
 				ID:   "27",
-				Name: "Beale St At Harrison St",
+				Name: "Beale St at Harrison St",
 			},
 		},
 	},
