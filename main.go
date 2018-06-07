@@ -198,8 +198,14 @@ func index(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	stations := make(map[string]StationStatus)
+	var (
+		classicCount int
+		ebikeCount   int
+		stations     = make(map[string]StationStatus)
+	)
 	for _, sta := range resp.Data.Stations {
+		classicCount += sta.NumBikesAvailable
+		ebikeCount += sta.NumEbikesAvailable
 		stations[sta.ID] = sta
 	}
 
@@ -219,7 +225,9 @@ func index(w http.ResponseWriter, r *http.Request) {
 	}
 
 	d := TmplData{
-		Regions: regions,
+		EbikeCount:   ebikeCount,
+		ClassicCount: classicCount,
+		Regions:      regions,
 	}
 
 	if err := tmpl.Execute(w, d); err != nil {
@@ -319,6 +327,14 @@ const tmplText = `
 	    </div>
 	    </div>
 	  {{end}}
+      <br><br>
+      <div class="container">
+	    <h4>SystemInfo:</h4>
+      <div class=table>
+      <div class="row row-pad border-top"><div class=col>Available E-bikes:</div><div class=col>{{.EbikeCount}}</div><div class="col"></div></div>
+      <div class="row row-pad border-top"><div class=col>Available Classic Bikes:</div><div class=col>{{.ClassicCount}}</div><div class="col"></div></div>
+      </div>
+      </div>
     </main>
 	</body>
 </html>`
@@ -326,5 +342,7 @@ const tmplText = `
 var tmpl = template.Must(template.New("html").Parse(tmplText))
 
 type TmplData struct {
-	Regions []Region
+	Regions      []Region
+	EbikeCount   int
+	ClassicCount int
 }
