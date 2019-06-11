@@ -19,7 +19,7 @@ import (
 var addr = flag.String("listen_addr", "127.0.0.1:1234", "Host/Port to listen on")
 var local = flag.Bool("local", false, "Run local server")
 
-var stationURL = "https://gbfs.fordgobike.com/gbfs/en/station_status.json"
+var stationURL = "https://gbfs.baywheels.com/gbfs/es/station_status.json"
 
 func main() {
 	flag.Parse()
